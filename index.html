@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redeem Rewards</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+        * { font-family: 'Poppins', sans-serif; }
+        
+        /* Purple Gradient Header similar to screenshot */
+        .header-bg {
+            background: linear-gradient(90deg, #6b46c1 0%, #805ad5 100%);
+        }
+        
+        /* Reward Card Gradient */
+        .reward-card {
+            background: linear-gradient(135deg, #7c3aed 0%, #4c1d95 100%);
+        }
+
+        /* Withdrawal Slider Thumb Customization */
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #7c3aed;
+            cursor: pointer;
+            margin-top: -8px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.2);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: #e5e7eb;
+            border-radius: 5px;
+        }
+
+        .upi-box.selected {
+            border-color: #7c3aed;
+            background-color: #f3e8ff;
+            color: #5b21b6;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen pb-20">
+
+    <!-- HEADER -->
+    <header class="header-bg text-white p-4 shadow-lg sticky top-0 z-50">
+        <div class="flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <i class="fas fa-gift text-2xl animate-bounce"></i>
+                <div>
+                    <h1 class="font-bold text-xl leading-tight">Redeem<br>Rewards</h1>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="text-right">
+                    <p class="text-xs opacity-80">Balance</p>
+                    <p class="font-bold text-lg">₹<span id="headerBalance">0.00</span></p>
+                </div>
+                <div class="bg-white/20 p-2 rounded-full cursor-pointer">
+                    <i class="fas fa-user text-lg"></i>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="p-4 max-w-md mx-auto space-y-6">
+
+        <!-- REDEEM SECTION -->
+        <div class="bg-white p-6 rounded-2xl shadow-sm">
+            <h2 class="text-center text-xl font-bold text-gray-800 mb-2">Redeem Your Code</h2>
+            <p class="text-center text-gray-500 text-sm mb-6">Enter code to claim limited rewards</p>
+
+            <div class="mb-4">
+                <label class="text-sm font-semibold text-gray-600 ml-1">Enter Redeem Code</label>
+                <input type="text" id="codeInput" placeholder="Ex: WIN100" class="w-full mt-2 p-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none text-center text-lg font-bold tracking-widest uppercase text-purple-700 transition">
+            </div>
+
+            <button id="btnRedeem" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-purple-200 transition active:scale-95">
+                Redeem
+            </button>
+            <p id="redeemMsg" class="text-center text-xs mt-3 font-medium h-4"></p>
+        </div>
+
+        <!-- REWARD BANNER (Visual Only) -->
+        <div class="reward-card text-white p-6 rounded-2xl shadow-lg relative overflow-hidden">
+            <i class="fas fa-coins absolute -right-4 -bottom-4 text-8xl opacity-20"></i>
+            <h3 class="font-semibold text-lg">Cash Reward</h3>
+            <h2 class="text-4xl font-bold mt-1">₹100 - ₹500</h2>
+            <p class="text-xs mt-4 opacity-90 bg-white/20 inline-block px-3 py-1 rounded-full">
+                <i class="fas fa-bolt mr-1"></i> Limited Users Only
+            </p>
+        </div>
+
+        <!-- WITHDRAWAL SECTION -->
+        <div class="bg-white p-6 rounded-2xl shadow-sm">
+            <h2 class="text-center text-xl font-bold text-gray-800 mb-6">Withdraw Earnings</h2>
+
+            <!-- Amount Display -->
+            <div class="flex justify-between items-end mb-2">
+                <span class="text-gray-500 text-sm font-medium">Withdrawal Amount</span>
+                <span class="text-2xl font-bold text-purple-600">₹<span id="withdrawDisplay">0</span></span>
+            </div>
+
+            <!-- Slider -->
+            <input type="range" id="amountSlider" min="50" max="5000" value="0" step="10" class="w-full mb-1">
+            <div class="flex justify-between text-xs text-gray-400 mb-6">
+                <span>₹50</span>
+                <span>₹5000</span>
+            </div>
+
+            <!-- UPI Selection -->
+            <p class="text-sm font-semibold text-gray-600 mb-3">Select UPI ID</p>
+            <div class="grid grid-cols-2 gap-3 mb-4">
+                <div onclick="selectMethod('paytm')" id="box-paytm" class="upi-box border-2 border-gray-100 rounded-xl p-3 flex items-center justify-center gap-2 cursor-pointer transition hover:bg-gray-50">
+                    <i class="fas fa-wallet text-blue-400"></i> <span class="font-medium text-sm">Paytm</span>
+                </div>
+                <div onclick="selectMethod('phonepe')" id="box-phonepe" class="upi-box border-2 border-gray-100 rounded-xl p-3 flex items-center justify-center gap-2 cursor-pointer transition hover:bg-gray-50">
+                    <i class="fas fa-mobile-alt text-purple-500"></i> <span class="font-medium text-sm">PhonePe</span>
+                </div>
+                <div onclick="selectMethod('gpay')" id="box-gpay" class="upi-box border-2 border-gray-100 rounded-xl p-3 flex items-center justify-center gap-2 cursor-pointer transition hover:bg-gray-50">
+                    <i class="fab fa-google text-green-500"></i> <span class="font-medium text-sm">GPay</span>
+                </div>
+                <div onclick="selectMethod('other')" id="box-other" class="upi-box border-2 border-gray-100 rounded-xl p-3 flex items-center justify-center gap-2 cursor-pointer transition hover:bg-gray-50">
+                    <i class="fas fa-ellipsis-h text-gray-400"></i> <span class="font-medium text-sm">Other</span>
+                </div>
+            </div>
+
+            <!-- Input for UPI ID -->
+            <input type="text" id="upiInput" placeholder="Enter UPI ID (e.g. number@paytm)" class="w-full p-3 border rounded-xl bg-gray-50 text-sm mb-4 focus:outline-none focus:border-purple-500 hidden">
+
+            <button onclick="processWithdraw()" id="btnWithdraw" class="w-full bg-purple-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl shadow-lg transition active:scale-95">
+                Apply for Withdrawal
+            </button>
+        </div>
+
+        <div class="text-center pt-4 pb-8">
+            <h3 class="font-bold text-gray-800 text-lg mb-2">How It Works?</h3>
+            <p class="text-xs text-gray-500 max-w-xs mx-auto">
+                1. Enter the unique code provided by admin.<br>
+                2. If you are within the limit (e.g. Top 2), you get cash.<br>
+                3. Withdraw instantly to your UPI.
+            </p>
+        </div>
+
+    </main>
+
+    <script type="module">
+        // --- FIREBASE CONFIGURATION ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, get, set, update, runTransaction, push, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        // *** APNA FIREBASE CONFIG YAHAN REPLACE KAREIN ***
+        const firebaseConfig = {
+            apiKey: "AIzaSyAFWVAKbl9GHTReWK14ipnOPewLlpXXUHo",
+            authDomain: "tournament-85d62.firebaseapp.com",
+            databaseURL: "https://tournament-85d62-default-rtdb.firebaseio.com",
+            projectId: "tournament-85d62",
+            storageBucket: "tournament-85d62.firebasestorage.app",
+            messagingSenderId: "1088462673525",
+            appId: "1:1088462673525:web:f50eaec451712d43b8ca3c",
+            measurementId: "G-B1SN2W0BWJ"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // --- USER IDENTITY ---
+        let userId = localStorage.getItem('unique_user_id');
+        if (!userId) {
+            userId = 'user_' + Math.floor(Math.random() * 1000000);
+            localStorage.setItem('unique_user_id', userId);
+        }
+        
+        // --- GLOBAL VARIABLES ---
+        let userBalance = 0;
+        let selectedPaymentMethod = '';
+
+        // --- 1. LOAD BALANCE & DATA ---
+        const userRef = ref(db, 'users/' + userId);
+        onValue(userRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data && data.balance) {
+                userBalance = data.balance;
+            } else {
+                userBalance = 0;
+            }
+            updateUI();
+        });
+
+        function updateUI() {
+            document.getElementById('headerBalance').innerText = userBalance.toFixed(2);
+            // Slider setup
+            const slider = document.getElementById('amountSlider');
+            slider.max = userBalance > 0 ? userBalance : 50; 
+            
+            // Withdrawal button check
+            const withdrawBtn = document.getElementById('btnWithdraw');
+            if(userBalance < 50) {
+                withdrawBtn.innerText = "Min Withdraw ₹50";
+                withdrawBtn.disabled = true;
+            } else {
+                withdrawBtn.innerText = "Apply for Withdrawal";
+                withdrawBtn.disabled = false;
+            }
+        }
+
+        // --- 2. REDEEM LOGIC (FIXED CODE) ---
+        // Maine sirf ye wala hissa change kiya hai taki 'Checking' bug hat jaye
+        document.getElementById('btnRedeem').addEventListener('click', async () => {
+            const code = document.getElementById('codeInput').value.trim().toUpperCase();
+            const btn = document.getElementById('btnRedeem');
+
+            if(!code) {
+                showMessage("Please enter a code", "red");
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = "Checking...";
+
+            const codeRef = ref(db, 'codes/' + code);
+            
+            try {
+                // IMPORTANT: Pehle check karo user ne already use kiya hai ya nahi
+                // Ye check transaction se pehle karna zaruri hai
+                const userHistorySnap = await get(ref(db, `users/${userId}/history/${code}`));
+                if(userHistorySnap.exists()) {
+                    showMessage("You have already used this code!", "orange");
+                    btn.disabled = false;
+                    btn.innerText = "Redeem";
+                    return;
+                }
+
+                // TRANSACTION (Correct way for Firebase V9+)
+                const result = await runTransaction(codeRef, (currentData) => {
+                    if (currentData === null) return; // Code nahi mila
+
+                    if (currentData.active && currentData.used_count < currentData.limit) {
+                        currentData.used_count++;
+                        return currentData;
+                    } else {
+                        return; // Abort (Limit full or inactive)
+                    }
+                });
+
+                if (result.committed) {
+                    // Success!
+                    const codeData = result.snapshot.val();
+                    await creditUser(code, codeData.amount);
+                } else {
+                    // Fail (Limit reached, etc)
+                    await checkWhyFailed(code);
+                }
+
+            } catch (e) {
+                console.error(e);
+                showMessage("System Error or Bad Internet.", "red");
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Redeem";
+            }
+        });
+
+        async function checkWhyFailed(code) {
+            const snapshot = await get(ref(db, 'codes/' + code));
+            if(!snapshot.exists()) {
+                showMessage("Invalid Code! Code does not exist.", "red");
+            } else {
+                const data = snapshot.val();
+                if (!data.active) {
+                    showMessage("This code has expired.", "red");
+                } else if (data.used_count >= data.limit) {
+                    showMessage("Limit Reached! All rewards claimed.", "red");
+                } else {
+                    showMessage("Code error. Try again.", "red");
+                }
+            }
+        }
+
+        async function creditUser(code, amount) {
+            const updates = {};
+            updates[`users/${userId}/balance`] = userBalance + amount;
+            updates[`users/${userId}/history/${code}`] = {
+                amount: amount,
+                timestamp: Date.now()
+            };
+
+            await update(ref(db), updates);
+            showMessage(`Success! ₹${amount} Added to Wallet.`, "green");
+            document.getElementById('codeInput').value = "";
+            confettiEffect(); 
+        }
+
+        function showMessage(text, color) {
+            const el = document.getElementById('redeemMsg');
+            el.innerText = text;
+            el.className = `text-center text-xs mt-3 font-medium h-4 text-${color}-600`;
+            setTimeout(() => el.innerText = "", 4000);
+        }
+
+        // --- 3. WITHDRAWAL LOGIC (SAME AS BEFORE) ---
+        
+        // Slider UI
+        const slider = document.getElementById('amountSlider');
+        const display = document.getElementById('withdrawDisplay');
+        slider.addEventListener('input', (e) => {
+            if(userBalance < 50) {
+                display.innerText = "0";
+                return;
+            }
+            let val = parseInt(e.target.value);
+            if(val > userBalance) val = Math.floor(userBalance);
+            display.innerText = val;
+        });
+
+        window.selectMethod = function(method) {
+            selectedPaymentMethod = method;
+            document.querySelectorAll('.upi-box').forEach(el => el.classList.remove('selected'));
+            document.getElementById('box-' + method).classList.add('selected');
+            
+            const upiInput = document.getElementById('upiInput');
+            upiInput.classList.remove('hidden');
+            if(method === 'paytm') upiInput.placeholder = "Enter Paytm Number";
+            else if(method === 'gpay') upiInput.placeholder = "Enter GPay Number/UPI";
+            else upiInput.placeholder = "Enter UPI ID";
+        }
+
+        window.processWithdraw = async function() {
+            const amount = parseInt(document.getElementById('withdrawDisplay').innerText);
+            const upi = document.getElementById('upiInput').value;
+            const btn = document.getElementById('btnWithdraw');
+
+            if(amount < 50) { alert("Minimum withdrawal is ₹50"); return; }
+            if(amount > userBalance) { alert("Insufficient Balance"); return; }
+            if(!selectedPaymentMethod || !upi) { alert("Please enter Payment Details"); return; }
+
+            btn.disabled = true;
+            btn.innerText = "Processing...";
+
+            await update(ref(db, `users/${userId}`), {
+                balance: userBalance - amount
+            });
+
+            await push(ref(db, 'withdrawals'), {
+                userId: userId,
+                amount: amount,
+                method: selectedPaymentMethod,
+                upi_id: upi,
+                status: 'pending',
+                timestamp: Date.now()
+            });
+
+            alert("Withdrawal Requested! Amount deducted.");
+            btn.disabled = false;
+            btn.innerText = "Apply for Withdrawal";
+            document.getElementById('upiInput').value = "";
+            document.getElementById('withdrawDisplay').innerText = "0";
+            slider.value = 0;
+        }
+
+        function confettiEffect() {
+            const colors = ['#7c3aed', '#fbbf24', '#ef4444'];
+            for(let i=0; i<30; i++) {
+                const div = document.createElement('div');
+                div.style.position = 'fixed';
+                div.style.left = Math.random() * 100 + 'vw';
+                div.style.top = '-10px';
+                div.style.width = '10px';
+                div.style.height = '10px';
+                div.style.background = colors[Math.floor(Math.random()*3)];
+                div.style.transition = 'all 2s linear';
+                div.style.zIndex = '100';
+                document.body.appendChild(div);
+                
+                setTimeout(() => {
+                    div.style.top = '110vh';
+                    div.style.transform = `rotate(${Math.random()*360}deg)`;
+                }, 10);
+                setTimeout(() => div.remove(), 2000);
+            }
+        }
+
+    </script>
+</body>
+</html>
