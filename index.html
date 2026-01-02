@@ -90,8 +90,9 @@
                 <span class="text-2xl font-bold text-purple-600">₹<span id="withdrawDisplay">0</span></span>
             </div>
 
-            <input type="range" id="amountSlider" min="50" max="5000" value="0" step="10" class="w-full mb-1">
-            <div class="flex justify-between text-xs text-gray-400 mb-6"><span>₹50</span><span>₹5000</span></div>
+            <!-- Changed min to 1 -->
+            <input type="range" id="amountSlider" min="1" max="5000" value="0" step="1" class="w-full mb-1">
+            <div class="flex justify-between text-xs text-gray-400 mb-6"><span>₹1</span><span>₹5000</span></div>
 
             <p class="text-sm font-semibold text-gray-600 mb-3">Select UPI ID</p>
             <div class="grid grid-cols-2 gap-3 mb-4">
@@ -116,7 +117,7 @@
             </button>
         </div>
 
-        <!-- NEW HISTORY SECTION -->
+        <!-- HISTORY SECTION -->
         <div class="bg-white p-6 rounded-2xl shadow-sm">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-xl font-bold text-gray-800">History</h2>
@@ -171,11 +172,11 @@
             updateUI();
         });
 
-        // 2. LOAD WITHDRAWAL HISTORY (NEW FUNCTION)
+        // 2. LOAD WITHDRAWAL HISTORY
         const historyRef = ref(db, `users/${userId}/withdrawals`);
         onValue(historyRef, (snapshot) => {
             const listDiv = document.getElementById('historyList');
-            listDiv.innerHTML = ""; // Clear existing
+            listDiv.innerHTML = ""; 
 
             if (!snapshot.exists()) {
                 listDiv.innerHTML = '<p class="text-center text-gray-400 text-sm py-4">No withdrawals yet</p>';
@@ -183,15 +184,13 @@
             }
 
             const data = snapshot.val();
-            // Convert object to array and reverse to show newest first
-            const entries = Object.entries(data).reverse();
+            const entries = Object.entries(data).reverse(); // Newest first
 
             entries.forEach(([key, item]) => {
                 const date = new Date(item.timestamp).toLocaleDateString('en-IN', {
                     day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit'
                 });
 
-                // Status Logic
                 let statusClass = "status-pending";
                 let iconClass = "fa-clock";
                 if(item.status === 'success') { statusClass = "status-success"; iconClass = "fa-check-circle"; }
@@ -222,12 +221,16 @@
 
         function updateUI() {
             document.getElementById('headerBalance').innerText = userBalance.toFixed(2);
-            const slider = document.getElementById('amountSlider');
-            slider.max = userBalance > 0 ? userBalance : 50; 
             
+            // Slider Logic Fix
+            const slider = document.getElementById('amountSlider');
+            // Min is now 1, Max is balance (or 100 if balance is 0)
+            slider.max = userBalance > 0 ? userBalance : 100; 
+            
+            // Button Logic Fix - Changed from 50 to 1
             const withdrawBtn = document.getElementById('btnWithdraw');
-            if(userBalance < 50) {
-                withdrawBtn.innerText = "Min Withdraw ₹50";
+            if(userBalance < 1) {
+                withdrawBtn.innerText = "Min Withdraw ₹1";
                 withdrawBtn.disabled = true;
             } else {
                 withdrawBtn.innerText = "Apply for Withdrawal";
@@ -235,7 +238,7 @@
             }
         }
 
-        // REDEEM LOGIC (SAME AS BEFORE)
+        // REDEEM LOGIC
         document.getElementById('btnRedeem').addEventListener('click', async () => {
             const code = document.getElementById('codeInput').value.trim().toUpperCase();
             const btn = document.getElementById('btnRedeem');
@@ -265,6 +268,7 @@
                     showMessage("Code Invalid or Expired", "red");
                 }
             } catch (e) {
+                console.error(e);
                 showMessage("Error Occurred", "red");
             } finally {
                 btn.disabled = false; btn.innerText = "Redeem";
@@ -286,13 +290,17 @@
             setTimeout(() => el.innerText = "", 4000);
         }
 
-        // WITHDRAWAL LOGIC (UPDATED FOR HISTORY)
+        // WITHDRAWAL LOGIC - FIXED LIMIT
         const slider = document.getElementById('amountSlider');
         const display = document.getElementById('withdrawDisplay');
+        
         slider.addEventListener('input', (e) => {
-            if(userBalance < 50) { display.innerText = "0"; return; }
+            // Updated limit logic for slider
+            if(userBalance < 1) { display.innerText = "0"; return; }
             let val = parseInt(e.target.value);
             if(val > userBalance) val = Math.floor(userBalance);
+            // Ensure min is 1 if they drag to 0 by mistake (if slider allowed it)
+            if(val < 1) val = 1;
             display.innerText = val;
         });
 
@@ -310,7 +318,8 @@
             const upi = document.getElementById('upiInput').value;
             const btn = document.getElementById('btnWithdraw');
 
-            if(amount < 50) { alert("Minimum withdrawal is ₹50"); return; }
+            // Changed check from 50 to 1
+            if(amount < 1) { alert("Minimum withdrawal is ₹1"); return; }
             if(amount > userBalance) { alert("Insufficient Balance"); return; }
             if(!selectedPaymentMethod || !upi) { alert("Please enter Payment Details"); return; }
 
@@ -321,24 +330,30 @@
                 amount: amount,
                 method: selectedPaymentMethod,
                 upi_id: upi,
-                status: 'pending', // pending, success, rejected
+                status: 'pending',
                 timestamp: Date.now()
             };
 
-            // 1. Deduct Balance
-            await update(ref(db, `users/${userId}`), { balance: userBalance - amount });
+            try {
+                // 1. Deduct Balance
+                await update(ref(db, `users/${userId}`), { balance: userBalance - amount });
 
-            // 2. Save to GLOBAL list (For Admin)
-            await push(ref(db, 'withdrawals'), withdrawData);
+                // 2. Save to GLOBAL list
+                await push(ref(db, 'withdrawals'), withdrawData);
 
-            // 3. Save to USER list (For History display) - THIS IS NEW
-            await push(ref(db, `users/${userId}/withdrawals`), withdrawData);
+                // 3. Save to USER list (For History)
+                await push(ref(db, `users/${userId}/withdrawals`), withdrawData);
 
-            alert("Withdrawal Requested!");
-            btn.disabled = false; btn.innerText = "Apply for Withdrawal";
-            document.getElementById('upiInput').value = "";
-            document.getElementById('withdrawDisplay').innerText = "0";
-            slider.value = 0;
+                alert("Withdrawal Requested!");
+                document.getElementById('upiInput').value = "";
+                document.getElementById('withdrawDisplay').innerText = "0";
+                slider.value = 0;
+            } catch(e) {
+                alert("Error processing withdrawal");
+                console.error(e);
+            } finally {
+                btn.disabled = false; btn.innerText = "Apply for Withdrawal";
+            }
         }
     </script>
 </body>
