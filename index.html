@@ -155,7 +155,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, get, set, update, runTransaction, push, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // *** APNA FIREBASE CONFIG YAHAN REPLACE KAREIN ***
+        // *** FIREBASE CONFIG ***
         const firebaseConfig = {
             apiKey: "AIzaSyAFWVAKbl9GHTReWK14ipnOPewLlpXXUHo",
             authDomain: "tournament-85d62.firebaseapp.com",
@@ -210,8 +210,7 @@
             }
         }
 
-        // --- 2. REDEEM LOGIC (FIXED CODE) ---
-        // Maine sirf ye wala hissa change kiya hai taki 'Checking' bug hat jaye
+        // --- 2. REDEEM LOGIC (FIXED) ---
         document.getElementById('btnRedeem').addEventListener('click', async () => {
             const code = document.getElementById('codeInput').value.trim().toUpperCase();
             const btn = document.getElementById('btnRedeem');
@@ -224,28 +223,30 @@
             btn.disabled = true;
             btn.innerText = "Checking...";
 
-            const codeRef = ref(db, 'codes/' + code);
-            
             try {
-                // IMPORTANT: Pehle check karo user ne already use kiya hai ya nahi
-                // Ye check transaction se pehle karna zaruri hai
-                const userHistorySnap = await get(ref(db, `users/${userId}/history/${code}`));
-                if(userHistorySnap.exists()) {
+                // Pehle check karo user ne already use kiya hai kya
+                const historyRef = ref(db, `users/${userId}/history/${code}`);
+                const historySnap = await get(historyRef);
+
+                if (historySnap.exists()) {
                     showMessage("You have already used this code!", "orange");
                     btn.disabled = false;
                     btn.innerText = "Redeem";
                     return;
                 }
 
-                // TRANSACTION (Correct way for Firebase V9+)
+                // TRANSACTION FIX: Handle null data properly
+                const codeRef = ref(db, 'codes/' + code);
                 const result = await runTransaction(codeRef, (currentData) => {
-                    if (currentData === null) return; // Code nahi mila
+                    // Agar data load ho raha hai (null), to wapis null return karo taaki Firebase retry kare
+                    if (currentData === null) return currentData;
 
+                    // Logic: Check Active & Limit
                     if (currentData.active && currentData.used_count < currentData.limit) {
                         currentData.used_count++;
                         return currentData;
                     } else {
-                        return; // Abort (Limit full or inactive)
+                        return; // Abort transaction
                     }
                 });
 
@@ -254,13 +255,17 @@
                     const codeData = result.snapshot.val();
                     await creditUser(code, codeData.amount);
                 } else {
-                    // Fail (Limit reached, etc)
+                    // Failed
                     await checkWhyFailed(code);
                 }
 
             } catch (e) {
                 console.error(e);
-                showMessage("System Error or Bad Internet.", "red");
+                if(e.code === 'PERMISSION_DENIED') {
+                    showMessage("Permission Error. Check Rules.", "red");
+                } else {
+                    showMessage("Network Error. Try again.", "red");
+                }
             } finally {
                 btn.disabled = false;
                 btn.innerText = "Redeem";
@@ -304,7 +309,7 @@
             setTimeout(() => el.innerText = "", 4000);
         }
 
-        // --- 3. WITHDRAWAL LOGIC (SAME AS BEFORE) ---
+        // --- 3. WITHDRAWAL LOGIC ---
         
         // Slider UI
         const slider = document.getElementById('amountSlider');
@@ -319,6 +324,7 @@
             display.innerText = val;
         });
 
+        // Method Selection
         window.selectMethod = function(method) {
             selectedPaymentMethod = method;
             document.querySelectorAll('.upi-box').forEach(el => el.classList.remove('selected'));
@@ -343,10 +349,12 @@
             btn.disabled = true;
             btn.innerText = "Processing...";
 
+            // Deduct Balance First
             await update(ref(db, `users/${userId}`), {
                 balance: userBalance - amount
             });
 
+            // Add to Withdrawal Request List
             await push(ref(db, 'withdrawals'), {
                 userId: userId,
                 amount: amount,
@@ -364,6 +372,7 @@
             slider.value = 0;
         }
 
+        // --- Visual Effect (Confetti) ---
         function confettiEffect() {
             const colors = ['#7c3aed', '#fbbf24', '#ef4444'];
             for(let i=0; i<30; i++) {
