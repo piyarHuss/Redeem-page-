@@ -27,7 +27,6 @@
         .upi-box.selected {
             border-color: #7c3aed; background-color: #f3e8ff; color: #5b21b6;
         }
-        /* Status Badge Colors */
         .status-pending { background-color: #fef9c3; color: #854d0e; }
         .status-success { background-color: #dcfce7; color: #166534; }
         .status-rejected { background-color: #fee2e2; color: #991b1b; }
@@ -90,7 +89,6 @@
                 <span class="text-2xl font-bold text-purple-600">₹<span id="withdrawDisplay">0</span></span>
             </div>
 
-            <!-- Min set to 1 -->
             <input type="range" id="amountSlider" min="1" max="5000" value="0" step="1" class="w-full mb-1">
             <div class="flex justify-between text-xs text-gray-400 mb-6"><span>₹1</span><span>₹5000</span></div>
 
@@ -126,12 +124,11 @@
             
             <div id="historyList" class="space-y-3">
                 <p class="text-center text-gray-400 text-sm py-4">No withdrawals yet</p>
-                <!-- JS will inject rows here -->
             </div>
         </div>
 
         <div class="text-center pt-4 pb-8">
-            <p class="text-xs text-gray-500">App Version 1.3</p>
+            <p class="text-xs text-gray-500">App Version 1.4</p>
         </div>
 
     </main>
@@ -161,6 +158,24 @@
             localStorage.setItem('unique_user_id', userId);
         }
         
+        // *** STEP 0: THIS FIXES THE ADMIN PANEL STATS ***
+        // Check if user exists, if not create. Update lastActive time.
+        get(ref(db, 'users/' + userId)).then((snap) => {
+            if(!snap.exists()) {
+                // New User: Create entry with 0 balance
+                update(ref(db, 'users/' + userId), {
+                    balance: 0,
+                    lastActive: Date.now(),
+                    joinedAt: Date.now()
+                });
+            } else {
+                // Existing User: Just update active time
+                update(ref(db, 'users/' + userId), {
+                    lastActive: Date.now()
+                });
+            }
+        });
+
         let userBalance = 0;
         let selectedPaymentMethod = '';
 
@@ -184,7 +199,6 @@
             }
 
             const data = snapshot.val();
-            // Convert to array and reverse to show newest first
             const entries = Object.entries(data).reverse();
 
             entries.forEach(([key, item]) => {
@@ -222,9 +236,7 @@
 
         function updateUI() {
             document.getElementById('headerBalance').innerText = userBalance.toFixed(2);
-            
             const slider = document.getElementById('amountSlider');
-            // If balance is 0, max 100 (dummy), else balance
             slider.max = userBalance > 0 ? userBalance : 100; 
             
             const withdrawBtn = document.getElementById('btnWithdraw');
@@ -278,6 +290,10 @@
             const updates = {};
             updates[`users/${userId}/balance`] = userBalance + amount;
             updates[`users/${userId}/history/${code}`] = { amount: amount, timestamp: Date.now() };
+            
+            // Also update lastActive here
+            updates[`users/${userId}/lastActive`] = Date.now();
+
             await update(ref(db), updates);
             showMessage(`Success! ₹${amount} Added.`, "green");
             document.getElementById('codeInput').value = "";
@@ -289,7 +305,7 @@
             setTimeout(() => el.innerText = "", 4000);
         }
 
-        // WITHDRAWAL LOGIC (FIXED FOR 1 RUPEE & SYNC)
+        // WITHDRAWAL LOGIC
         const slider = document.getElementById('amountSlider');
         const display = document.getElementById('withdrawDisplay');
         
@@ -297,7 +313,6 @@
             if(userBalance < 1) { display.innerText = "0"; return; }
             let val = parseInt(e.target.value);
             if(val > userBalance) val = Math.floor(userBalance);
-            // Safety check: Don't allow less than 1 if balance exists
             if(val < 1 && userBalance >=1) val = 1;
             display.innerText = val;
         });
@@ -322,7 +337,6 @@
 
             btn.disabled = true; btn.innerText = "Processing...";
 
-            // KEY FIX: Generate ID here so it's same in both places
             const newTxRef = push(ref(db, 'withdrawals')); 
             const txId = newTxRef.key;
 
@@ -337,11 +351,13 @@
             };
 
             try {
-                // ATOMIC UPDATE: Updates both Global and User list with SAME ID
                 const updates = {};
                 updates[`users/${userId}/balance`] = userBalance - amount;
                 updates[`withdrawals/${txId}`] = withdrawData;
                 updates[`users/${userId}/withdrawals/${txId}`] = withdrawData;
+                
+                // Update active status
+                updates[`users/${userId}/lastActive`] = Date.now();
 
                 await update(ref(db), updates);
 
